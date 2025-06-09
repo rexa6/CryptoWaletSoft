@@ -1,21 +1,27 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace WpfApp4
 {
     public partial class MainWindow : Window
     {
+        private readonly TransferParser _parser = new();
+        private int _totalAddresses = 0;
+        private readonly HashSet<string> _uniqueAddresses = new();
+
         public MainWindow()
         {
             InitializeComponent();
+
+            _parser.OnNewTransfers += Parser_OnNewTransfers;
+            _parser.OnError += Parser_OnError;
 
             GeneratorToggle.Checked += (s, e) =>
             {
@@ -28,27 +34,65 @@ namespace WpfApp4
                 GeneratorSubmenu.Visibility = Visibility.Collapsed;
                 GeneratorToggle.Content = "Brute Force ▼";
             };
+
+            Loaded += MainWindow_Loaded;
         }
 
-        private void ParserButton_Click(object sender, RoutedEventArgs e)
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = new ParserView(); // ← вставляется прямо в MainWindow
+            ConsoleTextBox.Clear();
+            WalletCountText.Text = "Всего адресов: 0";
+            _totalAddresses = 0;
+            _uniqueAddresses.Clear();
+
+            _parser.StartParsing();
         }
 
+        private void Parser_OnNewTransfers(List<Transfer> transfers)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                foreach (var t in transfers)
+                {
+                    if (_uniqueAddresses.Add(t.transferFromAddress))
+                    {
+                        ConsoleTextBox.AppendText(t.transferFromAddress + Environment.NewLine);
+                        _totalAddresses++;
+                    }
+
+                    if (_uniqueAddresses.Add(t.transferToAddress))
+                    {
+                        ConsoleTextBox.AppendText(t.transferToAddress + Environment.NewLine);
+                        _totalAddresses++;
+                    }
+                }
+
+                WalletCountText.Text = $"Всего уникальных адресов: {_totalAddresses}";
+                ConsoleTextBox.ScrollToEnd();
+            });
+        }
+
+        private void Parser_OnError(string error)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ConsoleTextBox.AppendText($"Ошибка: {error}{Environment.NewLine}");
+            });
+        }
 
         private void BtcButton_Click(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = new TextBlock { Text = "Генерация BTC кошелька", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            MessageBox.Show("BTC button clicked");
         }
 
         private void LtcButton_Click(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = new TextBlock { Text = "Генерация LTC кошелька", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            MessageBox.Show("LTC button clicked");
         }
 
         private void TrxButton_Click(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = new TextBlock { Text = "Генерация TRX кошелька", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            MessageBox.Show("TRX button clicked");
         }
     }
 }
